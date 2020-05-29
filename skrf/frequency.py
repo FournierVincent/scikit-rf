@@ -137,9 +137,15 @@ class Frequency(object):
         '''
         '''
         try:
-            output =  \
-                   '%s-%s %s, %i pts' % \
-                   (self.f_scaled[0], self.f_scaled[-1], self.unit, self.npoints)
+            if self.f_scaled[0]!= self.f_scaled[-1] :
+                output =  \
+                       '%s-%s %s, %i pts' % \
+                       (self.f_scaled[0], self.f_scaled[-1], self.unit, self.npoints)
+            else :
+                output =  \
+                       '%s %s, %i pts' % \
+                       (self.f_scaled[-1], self.unit, self.npoints)
+               
         except (IndexError):
             output = "[no freqs]"
 

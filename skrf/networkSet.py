@@ -465,10 +465,11 @@ class NetworkSet(object):
         a new NetworkSet if the output is a Network.
         '''
         output = [ntwk.__getattribute__(network_method_name)(*args, **kwargs) for ntwk in self.ntwk_set]
-        if isinstance(output[0],Network):
-            return NetworkSet(output)
-        else:
-            return output
+        if network_method_name[:5] != 'plot_' :
+            if isinstance(output[0],Network):
+                return NetworkSet(output)
+            else:
+                return output
 
     def copy(self):
         '''

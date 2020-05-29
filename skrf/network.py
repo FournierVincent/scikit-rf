@@ -181,7 +181,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 #from scipy.interpolate import interp1d
 
-
+#%%
 class Network(object):
     """
     A n-port electrical network [#]_.
@@ -733,18 +733,35 @@ class Network(object):
     def __str__(self):
         """
         """
+
+
+        def fcx(z,r=1) : # format complex numbers
+            return  str(npy.round(npy.array(z),r))
+
         f = self.frequency
         if self.name is None:
             name = ''
         else:
             name = self.name
 
-        if len(npy.shape(self.z0)) == 0 or npy.shape(self.z0)[0] == 0:
-            z0 = str(self.z0)
+        z0 = self.z0
+        if len(npy.shape(z0)) == 0 or npy.shape(z0)[0] == 0:
+            z0 = str(z0)
         else:
-            z0 = str(self.z0[0, :])
-
-        output = '%i-Port Network: \'%s\',  %s, z0=%s' % (self.number_of_ports, name, str(f), z0)
+            if (z0.real == z0).all() :
+                z0 = z0.real
+            z0 = str(z0[0, :])
+        if self.noisy :
+            if self.nfmin_db.min() == self.nfmin_db.max() : 
+                noise = ', nf %.1f %s %.0f'%(self.nfmin_db, fcx(self.g_opt,2), self.rn)
+                # noise = ', nf %.1f'%(self.nfmin_db.max())
+            else :
+                noise = ', nf %.1f %s %.0f'%(self.nfmin_db, fcx(self.g_opt,2), self.rn)
+            if not self.noise_chk() : 
+                noise = noise + ' chk error'
+        else :
+            noise =''
+        output = '%i-Port Network: \'%s\', %s, z0=%s\n%s' % (self.number_of_ports, name, str(f), z0, noise)
 
         return output
 
@@ -1627,9 +1644,6 @@ class Network(object):
         ntwk.name = self.name
 
         if self.noise is not None and self.noise_freq is not None:
-          if False : 
-              ntwk.noise = npy.copy(self.noise)
-              ntwk.noise_freq = npy.copy(self.noise_freq)
           ntwk.noise = self.noise.copy()
           ntwk.noise_freq = self.noise_freq.copy()
 
@@ -1691,6 +1705,36 @@ class Network(object):
             ntwk.port_names = None
         return ntwk
     
+    def noise_chk(self) :
+          def sq(x) :
+              return npy.abs(x) **2
+          T         = T0
+          if self.noise_freq.npoints > 1 :
+              s11       = self.s11.interpolate(self.noise_freq).s[:,0,0]
+              z0        = self.z0[0,0]
+              rn        = self.rn
+              nfmin_db  = self.nfmin_db
+              g_opt     = self.g_opt
+          else : 
+              sh_fr     = self.noise_freq.f.shape 
+              s11       = npy.broadcast_to(npy.atleast_1d(self.s11.s[:,0,0]), sh_fr)
+              z0        = self.z0[0,0]
+              rn        = npy.broadcast_to(npy.atleast_1d(self.rn), sh_fr)
+              nfmin_db  = npy.broadcast_to(npy.atleast_1d(self.nfmin_db), sh_fr)
+              g_opt     = npy.broadcast_to(npy.atleast_1d(self.g_opt), sh_fr)
+    
+              
+          
+          rnmin     = z0*T0/4/T*(mf.db10_2_mag(nfmin_db)-1)*sq(1+g_opt)*(1-sq(s11))/sq(1-g_opt*s11)
+
+          realistic = (rn > rnmin).all()        
+          if not realistic :
+              try  :
+                  print ('noise parameters error :%s : failed  rn =%.0f > %.0f' %(self.name,rn.min(), rnmin.max()))
+              except : 
+                  print ('noise parameters error')
+          return realistic
+    
     def set_noise_a(self, noise_freq=None, nfmin_db=0, gamma_opt=0, rn=1 ) :
           '''
           sets the "A" (ie cascade) representation of the correlation matrix, based on the 
@@ -1711,8 +1755,6 @@ class Network(object):
               )
           self.noise = noise.swapaxes(0, 2).swapaxes(1, 2)
           self.noise_freq = noise_freq
-        
-        
         
         
     # touchstone file IO
